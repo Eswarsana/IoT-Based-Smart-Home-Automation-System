@@ -1,0 +1,115 @@
+
+#include <SoftwareSerial.h>
+#include <Servo.h>
+
+// Bluetooth communication
+SoftwareSerial bluetooth(2, 3);
+
+// IR sensor pins
+const int lightIR = 4;
+const int fanIR = 5;
+const int doorIR = 6;
+
+// Appliance control output pins
+const int lightPin = 7;
+const int fanPin = 8;
+
+// Servo motor pin
+const int servoPin = 9;
+
+Servo doorServo;
+
+// Sensor detection settings
+// Change to HIGH if your IR sensors
+// produce HIGH when an object is detected.
+const int DETECTED = LOW;
+
+// Door positions
+const int doorOpen = 90;
+const int doorClosed = 0;
+
+unsigned long lastDetection = 0;
+const unsigned long doorDelay = 2000;
+
+bool previousLight = false;
+bool previousFan = false;
+bool previousDoor = false;
+
+void setup() {
+
+  Serial.begin(9600);
+  bluetooth.begin(9600);
+
+  pinMode(lightIR, INPUT);
+  pinMode(fanIR, INPUT);
+  pinMode(doorIR, INPUT);
+
+  pinMode(lightPin, OUTPUT);
+  pinMode(fanPin, OUTPUT);
+
+  digitalWrite(lightPin, LOW);
+  digitalWrite(fanPin, LOW);
+
+  doorServo.attach(servoPin);
+  doorServo.write(doorClosed);
+
+  bluetooth.println("Smart Home Automation Started");
+
+  Serial.println("System Started");
+}
+
+void loop() {
+
+  // Read IR sensors
+  bool lightDetected =
+    digitalRead(lightIR) == DETECTED;
+
+  bool fanDetected =
+    digitalRead(fanIR) == DETECTED;
+
+  bool doorDetected =
+    digitalRead(doorIR) == DETECTED;
+
+  // Light control
+  digitalWrite(lightPin,
+    lightDetected ? HIGH : LOW);
+
+  // Fan control
+  digitalWrite(fanPin,
+    fanDetected ? HIGH : LOW);
+
+  // Door control
+  if (doorDetected) {
+    lastDetection = millis();
+    doorServo.write(doorOpen);
+  }
+  else if (millis() - lastDetection >= doorDelay) {
+    doorServo.write(doorClosed);
+  }
+
+  // Send data only when sensor status changes
+
+  if (lightDetected != previousLight) {
+    bluetooth.println(
+      lightDetected ? "Light: ON" : "Light: OFF"
+    );
+    previousLight = lightDetected;
+  }
+
+  if (fanDetected != previousFan) {
+    bluetooth.println(
+      fanDetected ? "Fan: ON" : "Fan: OFF"
+    );
+    previousFan = fanDetected;
+  }
+
+  if (doorDetected != previousDoor) {
+    bluetooth.println(
+      doorDetected ? "Person at Door: Detected"
+                   : "Person at Door: Not Detected"
+    );
+    previousDoor = doorDetected;
+  }
+
+  delay(100);
+}
